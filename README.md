@@ -1,5 +1,9 @@
-cordova-plugin-file-transfer
-----------------------------
-To install this plugin, follow the [Command-line Interface Guide](http://cordova.apache.org/docs/en/edge/guide_cli_index.md.html#The%20Command-line%20Interface).
+Percolate Studio's fork of cordova-plugin-file-transfer
+-------------------------------------------------------
+We haved removed the multipart form section of the requestForUploadCommand method. 
+This allows the FileTransfer plugin to be used when uploading to an endpoint that expects
+only the raw file to be included in the body of the request.
 
-If you are not using the Cordova Command-line Interface, follow [Using Plugman to Manage Plugins](http://cordova.apache.org/docs/en/edge/plugin_ref_plugman.md.html).
+Install like `cordova plugin add https://github.com/percolatestudio/cordova-plugin-file-transfer.git`.
+
+Usage is the same as the standard File Transfer plugin. Currently only ios is modified.
