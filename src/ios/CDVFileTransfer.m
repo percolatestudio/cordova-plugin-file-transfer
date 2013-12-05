@@ -130,8 +130,6 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     // thus debug and chunkedMode are the 6th and 7th arguments
     NSString* target = [command argumentAtIndex:0];
     NSString* server = [command argumentAtIndex:1];
-    NSString* fileKey = [command argumentAtIndex:2 withDefault:@"file"];
-    NSString* fileName = [command argumentAtIndex:3 withDefault:@"no-filename"];
     NSString* mimeType = [command argumentAtIndex:4 withDefault:nil];
     NSDictionary* options = [command argumentAtIndex:5 withDefault:nil];
     //    BOOL trustAllHosts = [[arguments objectAtIndex:6 withDefault:[NSNumber numberWithBool:YES]] boolValue]; // allow self-signed certs
@@ -171,44 +169,17 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
         [req setHTTPShouldHandleCookies:NO];
     }
 
-    NSString* contentType = [NSString stringWithFormat:@"multipart/form-data; boundary=%@", kFormBoundary];
-    [req setValue:contentType forHTTPHeaderField:@"Content-Type"];
+    if (mimeType) {
+        [req setValue:mimeType forHTTPHeaderField:@"Content-Type"];
+    } else {
+        [req setValue:@"application/octet-stream" forHTTPHeaderField:@"Content-Type"];
+    }
+
     [self applyRequestHeaders:headers toRequest:req];
 
-    NSData* formBoundaryData = [[NSString stringWithFormat:@"--%@\r\n", kFormBoundary] dataUsingEncoding:NSUTF8StringEncoding];
-    NSMutableData* postBodyBeforeFile = [NSMutableData data];
-
-    for (NSString* key in options) {
-        id val = [options objectForKey:key];
-        if (!val || (val == [NSNull null]) || [key isEqualToString:kOptionsKeyCookie]) {
-            continue;
-        }
-        // if it responds to stringValue selector (eg NSNumber) get the NSString
-        if ([val respondsToSelector:@selector(stringValue)]) {
-            val = [val stringValue];
-        }
-        // finally, check whether it is a NSString (for dataUsingEncoding selector below)
-        if (![val isKindOfClass:[NSString class]]) {
-            continue;
-        }
-
-        [postBodyBeforeFile appendData:formBoundaryData];
-        [postBodyBeforeFile appendData:[[NSString stringWithFormat:@"Content-Disposition: form-data; name=\"%@\"\r\n\r\n", key] dataUsingEncoding:NSUTF8StringEncoding]];
-        [postBodyBeforeFile appendData:[val dataUsingEncoding:NSUTF8StringEncoding]];
-        [postBodyBeforeFile appendData:[@"\r\n" dataUsingEncoding : NSUTF8StringEncoding]];
-    }
-
-    [postBodyBeforeFile appendData:formBoundaryData];
-    [postBodyBeforeFile appendData:[[NSString stringWithFormat:@"Content-Disposition: form-data; name=\"%@\"; filename=\"%@\"\r\n", fileKey, fileName] dataUsingEncoding:NSUTF8StringEncoding]];
-    if (mimeType != nil) {
-        [postBodyBeforeFile appendData:[[NSString stringWithFormat:@"Content-Type: %@\r\n", mimeType] dataUsingEncoding:NSUTF8StringEncoding]];
-    }
-    [postBodyBeforeFile appendData:[[NSString stringWithFormat:@"Content-Length: %d\r\n\r\n", [fileData length]] dataUsingEncoding:NSUTF8StringEncoding]];
-
     DLog(@"fileData length: %d", [fileData length]);
-    NSData* postBodyAfterFile = [[NSString stringWithFormat:@"\r\n--%@--\r\n", kFormBoundary] dataUsingEncoding:NSUTF8StringEncoding];
 
-    long long totalPayloadLength = [postBodyBeforeFile length] + [fileData length] + [postBodyAfterFile length];
+    long long totalPayloadLength = [fileData length];
     [req setValue:[[NSNumber numberWithLongLong:totalPayloadLength] stringValue] forHTTPHeaderField:@"Content-Length"];
 
     if (chunkedMode) {
@@ -225,7 +196,7 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 
         [self.commandDelegate runInBackground:^{
             if (CFWriteStreamOpen(writeStream)) {
-                NSData* chunks[] = {postBodyBeforeFile, fileData, postBodyAfterFile};
+                NSData* chunks[] = {fileData};
                 int numChunks = sizeof(chunks) / sizeof(chunks[0]);
 
                 for (int i = 0; i < numChunks; ++i) {
@@ -241,9 +212,7 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
             CFRelease(writeStream);
         }];
     } else {
-        [postBodyBeforeFile appendData:fileData];
-        [postBodyBeforeFile appendData:postBodyAfterFile];
-        [req setHTTPBody:postBodyBeforeFile];
+        [req setHTTPBody:fileData];
     }
     return req;
 }
