@@ -7,3 +7,5 @@ only the raw file to be included in the body of the request.
 Install like `cordova plugin add https://github.com/percolatestudio/cordova-plugin-file-transfer.git`.
 
 Usage is the same as the standard File Transfer plugin. Currently only ios is modified.
+
+## NO LONGER MAINTAINED
